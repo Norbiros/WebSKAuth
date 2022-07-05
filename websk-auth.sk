@@ -1,0 +1,97 @@
+options:
+  client_id: 990239443417989120
+  client_secret: -tqDDWfD0JbozW9_-XoentMHmnJvsaz3
+  redirect_uri: http://localhost:8888/api/auth
+  user_agent: DiscordBot (http://craftopia.pl, v0.2)
+  domain: "http://localhost:8888" #Set it to your server domain,
+  
+# We need to use &%""% instead of &
+
+command /code [<text>] [<text>]:
+    trigger:
+        broadcast "Sending request!"
+        send a "post" request to "https://discord.com/api/oauth2/token" with the body "grant_type=authorization_code&%""%code=%arg-1%&%""%client_id={@client_id}&%""%client_secret={@client_secret}&%""%redirect_uri={@redirect_uri}" and the headers "Content-Type: application/x-www-form-urlencoded", and "User-Agent: DiscordBot {@user_agent}"
+        set {_resp} to the last http response
+        set {_body} to {_resp}'s body
+        set {_code} to {_resp}'s status code
+        if {_code} is not 200:
+            broadcast "&c&lUnexpected error while sending request"
+            broadcast "&lError code: &7%{_code}%"
+            broadcast "&lResponse body: &7%{_body}%"
+        else:
+            broadcast "&aSucessfully get response from discord api!"
+            copy json {_body} to {_output::*}
+            set {_token} to arg-2
+            set {websk::temp-auth::access-token} to {_output::access_token}
+            set {websk::auth::%{_token}%::discord::access-token} to {websk::temp-auth::access-token}
+            broadcast "TKDC %{websk::auth::%{_token}%::discord::access-token}%"
+            set {websk::auth::%{_token}%::logged} to true
+            set {websk::auth::%{_token}%::registred} to true
+            getUserData({_token})
+            clear {websk::temp-auth::*}
+
+            
+command /getUserData <text>:
+  trigger:
+    send a "get" request to "https://discordapp.com/api/users/@me" with the headers "Authorization: Bearer %{websk::auth::%arg-1%::discord::access-token}%", and "User-Agent: {@user_agent}"
+    set {_resp} to the last http response
+    set {_body} to {_resp}'s body
+    set {_code} to {_resp}'s status code
+    copy json {_body} to {_output::*}
+    set {websk::auth::%arg-1%::discord::username} to {_output::username}
+    set {websk::auth::%arg-1%::discord::id} to {_output::id}
+    set {websk::auth::%arg-1%::discord::avatar} to {_output::avatar}
+    broadcast "data done"
+
+function generateToken() :: text:
+    set {_characters::*} to "a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|r|s|t|u|w|x|y|z|0|1|2|3|4|5|6|7|8|9" split at "|"
+    set {_token} to ""
+    loop 20 times:
+        set {_token} to "%{_token}%%random element out of {_characters::*}%"
+    return {_token}
+
+function getUserData(token: text):
+    execute console command "getuserdata %{_token}%"
+    
+    
+define webserver:
+    port: 8888
+    on request:
+        set {_cookie} to header "Cookie" of event-request
+        if {_cookie} starts with "__Host-ID=":
+            replace all "__Host-ID=" with "" in {_cookie}
+        if the path is "/":
+            if {websk::auth::%{_cookie}%::logged} is not true:
+                return file "home.html"
+            else if {_cookie} is not set:
+                return file "home.html"
+            else:
+                set {_nickname} to {websk::auth::%{_cookie}%::discord::username}
+                return file "home-logged.html"
+        else if path is "/api/auth":
+            set {_var} to parameter "code" of event-request
+            set {_token} to generateToken()
+            set {_domain} to {@domain}
+            broadcast "Api /api/auth: %{_token}%"
+            broadcast "Cookie: %{_cookie}%"
+            if {websk::auth::%{_cookie}%::registred} is true:
+                if {_cookie} is set:
+                    set {websk::auth::%{_cookie}%::logged} to true
+                    return file "auth-redirect.html"
+                    stop 
+            execute console command "code %{_var}% %{_token}%"
+            return file "auth-redirect.html" with new header with name "Set-Cookie" with value "__Host-ID=%{_token}%; Path=/; Secure; HttpOnly; SameSite=Lax"
+        else if path starts with "/api/check-account":
+            return "%{websk::auth::%{_cookie}%::registred}%"
+        else if path starts with "/api/check-token":
+            set {_token} to {_cookie}
+            broadcast "Api CheckToken: %{_token}%"
+            if {websk::auth::%{_token}%::registred} is false:
+                return "false"
+            else if {websk::auth::%{_token}%::registred} is true:
+                set {websk::auth::%{_token}%::logged} to true
+                return "true"
+        else if path starts with "/api/logout":
+            set {websk::auth::%{_cookie}%::logged} to false
+            set {_domain} to {@domain}
+            return "<html><script>window.location.href = '%{_domain}%'</script></html>"
