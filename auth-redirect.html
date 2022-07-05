@@ -1,0 +1,23 @@
+<html>
+  <script>
+    setTimeout(() => {
+    fetch( "{{show {_domain}}}/api/check-account" )
+       .then(response => response.text())
+       .then(data => updatePage(data));
+
+    function updatePage(data) {
+       if (data == "true") {
+          fetch( "{{show {_domain}}}/api/check-token" )
+            .then(response => response.text())
+            .then(data =>  back());
+       }
+    }
+    }, 500);
+    
+    function back() {
+      setTimeout(() => {
+        window.location.href = "{{show {_domain}}}/"
+      }, 250);
+    }
+  </script>
+</html>
