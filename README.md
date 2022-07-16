@@ -6,6 +6,7 @@ Auth in Skript using WebSK plugin.
 2. Copy all other html files to `WebSK/target/`
 3. Get all data in Discord Developer Portal
 4. Fill are options with values (auth client id, client secret, redirect uri, user agent (it should be `DiscordBot (<your domain>, v1.0)`), domain (your webpage domain/ip))
-5. Run code using `/skript reload websk-auth`
+5. Add you auth link to `home.html`
+6. Run code using `/skript reload websk-auth`
 
-  **Code is WIP! It isn't 100% secure!**
+  **Code is WIP! Because WebSK uses HTTP it isn't 100% secure!**
